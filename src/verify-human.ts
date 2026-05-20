@@ -1,17 +1,12 @@
 import crypto from "node:crypto";
-import type z from "zod";
-import {
-    humanFieldsSchema,
-    sendRequestSchema,
-    verifyRequestSchema,
-} from "./schemas.js";
 import type {
     Options,
     SendResult,
     VerifyResult,
-    CreateAgentMessageInput,
-    CreateHumanVerificationMessageInput,
+    AgentMessageInput,
+    HumanVerificationMessageInput,
     ResolvedHumanField,
+    SendVerificationInput,
 } from "./types.js";
 
 const DEFAULT_CODE_LENGTH = 6;
@@ -32,45 +27,47 @@ export function createVerification(options: Options) {
     const ttlMs = options.ttlMs ?? 24 * 60 * 60 * 1000; // 24 hours
     const channel = options.channel ?? "email";
     const returnAgentMessage = options.returnAgentMessage ?? false;
+    validateOptions(options);
 
     return {
-        async send(input: z.infer<typeof sendRequestSchema>) {
-            const parsed = sendRequestSchema.parse(input);
-            const requestedHumanFields = humanFieldsSchema.parse(options.requestedHumanFields);
+        async send(input: { to: string; from?: string }) {
+            const requestedHumanFields = (options.requestedHumanFields ?? []) as ResolvedHumanField[];
             const otpCode = generateNumericCode(DEFAULT_CODE_LENGTH);
             const expiresAt = new Date(Date.now() + ttlMs).toISOString();
-            const messageInput = {
+            const sendVerificationInput: SendVerificationInput = {
+                verificationId: crypto.randomUUID(),
                 otpCode,
                 expiresAt,
-                channel,
-                to: parsed.to,
-                ...(parsed.from === undefined ? {} : { from: parsed.from }),
+                verificationMessage: (options.humanVerificationMessage ?? humanVerificationMessage)({
+                    otpCode,
+                    expiresAt,
+                    channel,
+                    to: input.to,
+                    ...(!input.from ? {} : { from: input.from }),
+                    requestedHumanFields,
+                }),
+                verificationTarget: {
+                    channel,
+                    to: input.to,
+                    ...(!input.from ? {} : { from: input.from }),
+                },
                 requestedHumanFields,
             };
-            const response = await request<SendResult>({
-                baseUrl: BASE_URL,
-                apiKey: options.apiKey,
-                path: `/agent-signup/${channel}`,
-                body: {
-                    verificationId: crypto.randomUUID(),
-                    otpCode: otpCode,
-                    expiresAt,
-                    verificationMessage: (options.createHumanVerificationMessage ?? createHumanVerificationMessage)(messageInput),
-                    verificationTarget: {
-                        channel: channel,
-                        to: parsed.to,
-                        from: parsed.from,
-                    },
-                    requestedHumanFields,
-                },
-            });
+            const response = !options.send
+                ? await request<SendResult>({
+                    baseUrl: BASE_URL,
+                    apiKey: options.apiKey!,
+                    path: `/agent-signup/${channel}`,
+                    body: sendVerificationInput,
+                })
+                : await options.send(sendVerificationInput);
+
             const result = {
                 ...response,
                 ...(returnAgentMessage ? {
-                    message: (options.createAgentMessage ?? createAgentMessage)({
-                        ...messageInput,
-                        verificationId: response.verificationId,
-                        expiresAt: response.expiresAt,
+                    message: (options.agentMessage ?? createAgentMessage)({
+                        to: input.to,
+                        requestedHumanFields,
                     }),
                 } : {})
             };
@@ -79,44 +76,51 @@ export function createVerification(options: Options) {
 
             return result;
         },
-        async verify(input: z.infer<typeof verifyRequestSchema>) {
-            const parsed = verifyRequestSchema.parse(input);
-            const verification = await request<VerifyResult>({
-                baseUrl: BASE_URL,
-                apiKey: options.apiKey,
-                path: "/agent-signup/verify",
-                body: parsed,
-            });
+        async verify(input: { verificationId: string; otpCode: string; [x: string]: unknown }) {
+            const verification = !options.verify
+                ? await request<VerifyResult>({
+                    baseUrl: BASE_URL,
+                    apiKey: options.apiKey!,
+                    path: "/agent-signup/verify",
+                    body: input,
+                })
+                : await options.verify(input);
 
             return await options?.onVerify?.(verification);
         },
     };
 }
 
-function createHumanVerificationMessage({
+function humanVerificationMessage({
     otpCode,
-}: CreateHumanVerificationMessageInput) {
+}: HumanVerificationMessageInput) {
     return [
         `Your verification code is ${otpCode}.`,
         "An agent is asking to create an account on your behalf.",
-        "Give this code only if you approve.",
+        "Give it this code if you approve.",
     ].join(" ");
 }
 
 function createAgentMessage({
     to,
     requestedHumanFields,
-}: CreateAgentMessageInput) {
+}: AgentMessageInput) {
     return `Verification code sent to ${to}. Ask your human for the code, then POST to the verification endpoint with the following payload: `
     + `{`
     + `'verificationId': '...', 'otpCode': '...', `
-    + `${requestedHumanFields.map((field) => `'${field.field}': '<${field.description}>'`).join(', ')}`
+    + `${requestedHumanFields?.map((field) => `'${field.field}': '<${field.description}>'`).join(', ')}`
     + `}`;
 }
 
 function generateNumericCode(length: number) {
     const max = 10 ** length;
     return crypto.randomInt(0, max).toString().padStart(length, "0");
+}
+
+function validateOptions(options: Options): void {
+    if (!options.apiKey && (!options.send || !options.verify)) {
+        throw new VerifyHumanError(`apiKey is required when "send" or "verify" methods are not supplied`);
+    }
 }
 
 async function request<T>({
@@ -140,7 +144,7 @@ async function request<T>({
     });
 
     if (!response.ok) {
-        let error = response.statusText || "Agent signup request failed";
+        let error = response.statusText || "Request failed";
         let code: string | undefined;
         try {
             const data = await response.json() as { error?: string; code?: string };

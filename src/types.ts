@@ -1,15 +1,16 @@
 import type { createVerification } from "./verify-human.js";
-import type { z } from "zod";
-import type {
-    humanFieldSchema,
-    humanFieldsSchema,
-    verificationChannelSchema,
-} from "./schemas.js";
 
-export type VerificationChannel = z.infer<typeof verificationChannelSchema>;
-export type HumanSignupField = z.input<typeof humanFieldSchema>;
-export type ResolvedHumanField = z.infer<typeof humanFieldSchema>;
-export type HumanFields = z.input<typeof humanFieldsSchema>;
+export type VerificationChannel = "sms" | "whatsapp" | "call" | "email";
+export type ResolvedHumanField = {
+    field: string;
+    description: string;
+    optional?: boolean;
+};
+export type VerifyVerificationInput = {
+    verificationId: string;
+    otpCode: string;
+    [x: string]: unknown;
+};
 
 export type GeneratedVerification = {
     verificationId: string;
@@ -22,7 +23,7 @@ export type GeneratedVerification = {
 export type SendResult = {
     verificationId: string;
     channel: VerificationChannel;
-    requestedHumanFields: ResolvedHumanField[];
+    requestedHumanFields?: ResolvedHumanField[];
     expiresAt: string;
     message?: string;
 };
@@ -32,33 +33,44 @@ export type VerifyResult = {
     verified: boolean;
 };
 
-export type CreateHumanVerificationMessageInput = {
+export type SendVerificationInput = {
+    verificationId: string;
+    otpCode: string;
+    expiresAt: string;
+    verificationMessage: string;
+    verificationTarget: {
+        channel: VerificationChannel;
+        to: string;
+        from?: string;
+    };
+    requestedHumanFields?: ResolvedHumanField[];
+};
+
+export type HumanVerificationMessageInput = {
     otpCode: string;
     expiresAt: string;
     channel: VerificationChannel;
     to: string;
     from?: string;
-    requestedHumanFields: ResolvedHumanField[];
+    requestedHumanFields?: ResolvedHumanField[];
 };
 
-export type CreateAgentMessageInput = {
-    verificationId: string;
-    expiresAt: string;
-    channel: VerificationChannel;
+export type AgentMessageInput = {
     to: string;
-    from?: string;
-    requestedHumanFields: ResolvedHumanField[];
+    requestedHumanFields?: ResolvedHumanField[];
 };
 
 export type Options = {
-    apiKey: string;
+    apiKey?: string;
+    send?: (input: SendVerificationInput) => (any & { message?: string }) | Promise<(any & { message?: string })>;
+    verify?: (input: VerifyVerificationInput) => any;
     channel?: VerificationChannel;
-    requestedHumanFields?: HumanFields;
+    requestedHumanFields?: ResolvedHumanField[];
     onSend?(result: SendResult): void | Promise<void>;
     onVerify?(result: VerifyResult): any | Promise<any>;
     returnAgentMessage?: boolean;
-    createHumanVerificationMessage?(input: CreateHumanVerificationMessageInput): string;
-    createAgentMessage?(input: CreateAgentMessageInput): string;
+    humanVerificationMessage?(input: HumanVerificationMessageInput): string;
+    agentMessage?(input: AgentMessageInput): string;
     ttlMs?: number;
 };
 

@@ -1,10 +1,10 @@
 import express, { type NextFunction, type Response, type Request } from "express";
-import { createVerification, createExpressVerification } from "./src/index.js";
+import { createVerification, createExpressVerification } from "../src/index.js";
 
 const app = express();
 app.use(express.json());
 
-const POKU_API_KEY = "";
+const POKU_API_KEY = "YOUR_POKU_API_KEY";
 const verification = createVerification({
     apiKey: POKU_API_KEY,
     onSend(result) {
