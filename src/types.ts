@@ -1,57 +1,65 @@
-import type { createAgentSignup } from "./agent-signup.js";
+import type { createVerification } from "./verify-human.js";
+import type { z } from "zod";
+import type {
+    humanFieldSchema,
+    humanFieldsSchema,
+    verificationChannelSchema,
+} from "./schemas.js";
 
-export type VerificationChannel = "sms" | "whatsapp" | "call";
+export type VerificationChannel = z.infer<typeof verificationChannelSchema>;
+export type HumanSignupField = z.input<typeof humanFieldSchema>;
+export type ResolvedHumanField = z.infer<typeof humanFieldSchema>;
+export type HumanFields = z.input<typeof humanFieldsSchema>;
 
-export type AgentSignupProvisioningResult = {
-    accountId?: string;
-    agentId?: string;
-    apiKey?: string;
-    numberId?: string;
-    phoneNumber?: string;
-    [key: string]: unknown;
-};
-
-export type AgentSignupStartResult = {
+export type GeneratedVerification = {
     verificationId: string;
-    humanPhoneNumber: string;
-    channel: VerificationChannel;
+    otpCode: string;
     expiresAt: string;
-    message: string;
+    verificationMessage: string;
+    agentMessage?: string;
 };
 
-export type AgentSignupVerifyResult = AgentSignupProvisioningResult & {
+export type SendResult = {
     verificationId: string;
-    humanPhoneNumber: string;
-    agentName?: string;
     channel: VerificationChannel;
+    requestedHumanFields: ResolvedHumanField[];
+    expiresAt: string;
+    message?: string;
+};
+
+export type VerifyResult = {
+    verificationId: string;
     verified: boolean;
 };
 
-export type AgentSignupHooks = {
-    onSignupStarted?(result: AgentSignupStartResult): void | Promise<void>;
-    onVerificationSucceeded?(result: AgentSignupVerifyResult): void | Promise<void>;
-    onVerificationFailed?(params: {
-        verificationId: string;
-        statusCode?: number;
-        error: string;
-    }): void | Promise<void>;
-    onProvisioned?(params: {
-        verification: AgentSignupVerifyResult;
-        result: AgentSignupProvisioningResult;
-    }): void | Promise<void>;
-    onLog?(level: "debug" | "info" | "warn" | "error", message: string, context?: Record<string, unknown>): void | Promise<void>;
+export type CreateHumanVerificationMessageInput = {
+    otpCode: string;
+    expiresAt: string;
+    channel: VerificationChannel;
+    to: string;
+    from?: string;
+    requestedHumanFields: ResolvedHumanField[];
 };
 
-export type AgentSignupOptions = {
-    pokuApiKey: string;
+export type CreateAgentMessageInput = {
+    verificationId: string;
+    expiresAt: string;
+    channel: VerificationChannel;
+    to: string;
+    from?: string;
+    requestedHumanFields: ResolvedHumanField[];
+};
+
+export type Options = {
+    apiKey: string;
     channel?: VerificationChannel;
-    hooks?: AgentSignupHooks;
-    provisionAgent?(input: {
-        verificationId: string;
-        humanPhoneNumber: string;
-        agentName?: string;
-        channel: VerificationChannel;
-    }): Promise<AgentSignupProvisioningResult>;
+    requestedHumanFields?: HumanFields;
+    onSend?(result: SendResult): void | Promise<void>;
+    onVerify?(result: VerifyResult): any | Promise<any>;
+    returnAgentMessage?: boolean;
+    createHumanVerificationMessage?(input: CreateHumanVerificationMessageInput): string;
+    createAgentMessage?(input: CreateAgentMessageInput): string;
+    ttlMs?: number;
 };
 
-export type AgentSignup = ReturnType<typeof createAgentSignup>;
+export type VerifyHuman = ReturnType<typeof createVerification>;

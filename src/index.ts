@@ -1,9 +1,11 @@
-export { AgentSignupError, createAgentSignup } from "./agent-signup.js";
-export { createExpressAgentSignup } from "./adapters/express.js";
+export { VerifyHumanError, createVerification } from "./verify-human.js";
+export { createExpressVerification } from "./adapters/express.js";
 export type {
-    AgentSignupOptions,
-    AgentSignupProvisioningResult,
-    AgentSignupStartResult,
-    AgentSignupVerifyResult,
+    CreateAgentMessageInput,
+    CreateHumanVerificationMessageInput,
+    GeneratedVerification,
+    Options,
+    SendResult as StartResult,
+    VerifyResult,
     VerificationChannel,
 } from "./types.js";

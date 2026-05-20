@@ -1,19 +1,16 @@
 import type { RequestHandler } from "express";
-import { AgentSignupError } from "../agent-signup.js";
-import type { AgentSignup, VerificationChannel } from "../types.js";
+import { VerifyHumanError } from "../verify-human.js";
+import type { VerifyHuman } from "../types.js";
 
-export function createExpressAgentSignup(signup: AgentSignup): {
-    signUp(options?: { channel?: VerificationChannel }): RequestHandler;
+export function createExpressVerification(signup: VerifyHuman): {
+    send(): RequestHandler;
     verify(): RequestHandler;
 } {
     return {
-        signUp(options) {
+        send() {
             return async (req, res, next) => {
                 try {
-                    const result = await signup.start({
-                        ...req.body,
-                        channel: options?.channel ?? req.body?.channel,
-                    });
+                    const result = await signup.send(req.body);
                     res.status(202).json(result);
                 } catch (error) {
                     next(error);
@@ -26,7 +23,7 @@ export function createExpressAgentSignup(signup: AgentSignup): {
                     const result = await signup.verify(req.body);
                     res.status(200).json(result);
                 } catch (error) {
-                    if (error instanceof AgentSignupError) {
+                    if (error instanceof VerifyHumanError) {
                         res.status(error.statusCode).json({
                             error: error.message,
                             code: error.code,

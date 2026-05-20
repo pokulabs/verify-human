@@ -1,19 +1,26 @@
 import { z } from "zod";
 
-export const e164PhoneNumberSchema = z
-    .string()
-    .regex(/^\+[1-9]\d{1,14}$/, "Phone number must be in E.164 format (e.g. +14155551234)");
+export const verificationChannelSchema = z.enum(["sms", "whatsapp", "call", "email"]);
 
-export const verificationChannelSchema = z.enum(["sms", "whatsapp", "call"]);
+export const humanFieldSchema = z.object({
+    field: z.string().min(1),
+    description: z.string().min(1),
+    optional: z.boolean().default(false),
+});
+export const humanFieldsSchema = z.array(humanFieldSchema).default([]);
 
-export const startSignupRequestSchema = z.object({
-    humanPhoneNumber: e164PhoneNumberSchema,
-    agentName: z.string().min(1).max(100).optional(),
-    channel: verificationChannelSchema.optional(),
+export const sendRequestSchema = z.object({
+    to: z
+        .string()
+        .min(1, "to is required")
+        .max(320, "to must be 320 characters or fewer"),
     from: z.string().min(1).max(20).optional(),
 });
 
-export const verifySignupRequestSchema = z.object({
+export const verifyRequestSchema = z.object({
     verificationId: z.string().min(1),
-    otpCode: z.string().regex(/^\d+$/, "OTP code must be numeric"),
-});
+    otpCode: z.union([
+        z.string(),
+        z.number().int().nonnegative().transform(val => val.toString()), // Accept numeric input and coerce to string
+    ]),
+}).catchall(z.unknown());
