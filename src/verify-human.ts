@@ -57,7 +57,7 @@ export function createVerification(options: Options) {
                 ? await request<SendResult>({
                     baseUrl: BASE_URL,
                     apiKey: options.apiKey!,
-                    path: `/agent-signup/${channel}`,
+                    path: `/verify-human/${channel}`,
                     body: sendVerificationInput,
                 })
                 : await options.send(sendVerificationInput);
@@ -81,7 +81,7 @@ export function createVerification(options: Options) {
                 ? await request<VerifyResult>({
                     baseUrl: BASE_URL,
                     apiKey: options.apiKey!,
-                    path: "/agent-signup/verify",
+                    path: "/verify-human/verify",
                     body: input,
                 })
                 : await options.verify(input);

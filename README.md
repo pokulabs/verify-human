@@ -6,6 +6,12 @@ The main use case is AI-assisted user signup: an agent asks your API to create a
 
 Supported channels are `email`, `sms`, `whatsapp`, and `call`.
 
+## Installation
+
+```bash
+npm install verify-human
+```
+
 ## Quick Start
 
 ```ts
@@ -112,7 +118,7 @@ The Express adapter exposes route handlers that you can mount behind your own AP
 
 ```ts
 import express from "express";
-import { createVerification, createExpressVerification } from "agent-signup";
+import { createVerification, createExpressVerification } from "verify-human";
 
 const app = express();
 app.use(express.json());
