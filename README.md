@@ -1,8 +1,14 @@
 # Verify Human
 
-Verify Human lets an AI agent complete a flow only after a real human approves it with a one-time code.
+Verify Human lets an AI agent complete a flow only after a real human approves it with a one-time code. Zero dependencies.
 
-The main use case is AI-assisted user signup: an agent asks your API to create an account, Poku sends a code to the human, the agent collects that code from the human, and your app provisions the account after verification succeeds. The same pattern can also support workspace invitations, trial activation, delegated admin setup, sensitive configuration changes, or any flow where an agent needs verifiable human approval.
+A primary use case is AI-assisted user signup:
+1. An agent asks your app API to create an account
+2. Poku sends a code to the human
+3. The agent collects that code from the human and sends it back to your API
+4. Your app provisions the account after verification succeeds.
+
+The same pattern can also support workspace invitations, trial activation, delegated admin setup, sensitive configuration changes, or any flow where an agent needs verifiable human approval.
 
 Supported channels are `email`, `sms`, `whatsapp`, and `call`.
 
@@ -18,7 +24,7 @@ npm install verify-human
 import { createVerification } from "verify-human";
 
 const verification = createVerification({
-    apiKey: process.env.POKU_API_KEY!,
+    apiKey: process.env.POKU_API_KEY,
     returnAgentMessage: true,
     async onVerify(result) {
         // Create the human's account after Poku verifies the code.
@@ -29,22 +35,25 @@ const verification = createVerification({
     },
 });
 
+// This sends a OTP to the human's email
+// It also return a verificationId (a unique identifier for this transaction)
 const started = await verification.send({
     to: "human@example.com",
 });
 
 // Give started.message to the agent, or tell the agent to ask the human
-// for the code sent to the `to` address.
+// for the code.
 
+// Submit the code + verificationId here
 const verified = await verification.verify({
     verificationId: started.verificationId,
     otpCode: "123456",
 });
 ```
 
-`send()` returns `verificationId`, `expiresAt`, `channel`, and any `requestedHumanFields`. If `returnAgentMessage` is true, it also returns `message` instruction for the agent on how to complete the verification. For `sms`, `whatsapp`, and `call`, `to` must be an E.164 phone number, such as `+12223334444`.
+`send()` returns `verificationId` `expiresAt` and any `requestedHumanFields`. If `returnAgentMessage` is true, it also returns `message` instruction for the agent to complete the verification. For channels `sms` `whatsapp` and `call`, `to` must be an E.164 phone number, such as `+12223334444`.
 
-`verify()` accepts `{ verificationId, otpCode }` plus any requested human fields as top-level values. Put agent-specific metadata in `agent`. The return value is whatever your `onVerify` hook returns.
+`verify()` accepts `{ verificationId, otpCode }` plus any requested human fields as top-level values. The return value is whatever your `onVerify` hook returns.
 
 ## `createVerification()` Options
 
@@ -124,7 +133,7 @@ const app = express();
 app.use(express.json());
 
 const verification = createVerification({
-    apiKey: process.env.POKU_API_KEY!,
+    apiKey: process.env.POKU_API_KEY,
     returnAgentMessage: true,
     async onVerify(result) {
         return {
