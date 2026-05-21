@@ -121,13 +121,13 @@ const verification = createVerification({
 });
 ```
 
-## Express Adapter
+## Express Example
 
 The Express adapter exposes route handlers that you can mount behind your own API routes:
 
 ```ts
 import express from "express";
-import { createVerification, createExpressVerification } from "verify-human";
+import { createVerification } from "verify-human";
 
 const app = express();
 app.use(express.json());
@@ -144,12 +144,15 @@ const verification = createVerification({
     },
 });
 
-const agentSignup = createExpressVerification(verification);
-app.post("/agent/signup", agentSignup.send());
-app.post("/agent/verify", agentSignup.verify());
+app.post("/agent/signup", async (req, res, _next) => {
+    const result = await verification.send({ to: req.body.to });
+    res.send(result);
+});
+app.post("/agent/verify", async (req, res, _next) => {
+    const result = await verification.verify({
+        verificationId: req.body.verificationId,
+        otpCode: req.body.otpCode,
+    });
+    res.send(result);
+});
 ```
-
-Agents call your SaaS signup routes:
-
-- `POST /agent/signup` with `{ "to": "human@example.com" }`
-- `POST /agent/verify` with `{ "verificationId": "...", "otpCode": "123456" }`

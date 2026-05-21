@@ -1,5 +1,5 @@
 import express, { type NextFunction, type Response, type Request } from "express";
-import { createVerification, createExpressVerification } from "../src/index.js";
+import { createVerification } from "../src/index.js";
 
 const app = express();
 app.use(express.json());
@@ -23,9 +23,17 @@ const verification = createVerification({
     returnAgentMessage: true,
 });
 
-const expressAgentSignup = createExpressVerification(verification);
-app.post("/agent/signup", expressAgentSignup.send());
-app.post("/agent/verify", expressAgentSignup.verify());
+app.post("/agent/signup", async (req, res, _next) => {
+    const result = await verification.send({ to: req.body.to });
+    res.send(result);
+});
+app.post("/agent/verify", async (req, res, _next) => {
+    const result = await verification.verify({
+        verificationId: req.body.verificationId,
+        otpCode: req.body.otpCode,
+    });
+    res.send(result);
+});
 
 app.use(( err: Error, _req: Request, res: Response, _next: NextFunction ) => {
     res.status(500).send({ message: err.message });
@@ -34,4 +42,4 @@ app.use(( err: Error, _req: Request, res: Response, _next: NextFunction ) => {
 
 app.listen(3005, () => {
     console.log("Server is running on port 3005");
-});
+}).on("error", console.error);
